@@ -96,6 +96,30 @@ $posts = [
         "Leo Messi",
         "PHP"
     ],
+    [
+        "Debugging Days: The Bug That Only Appeared on Fridays",
+        "Last month I chased a bug that showed up only on Fridays after lunch. At first, it looked random. API calls failed, then passed, then failed again.\n\nThe culprit was painfully simple: our test data had an expiry date that happened to match Friday in one timezone but not another. So depending on who refreshed first, the app looked healthy or broken.\n\nWhat helped:\n1. Logging timestamps with timezone info instead of plain dates.\n2. Replaying the same request in UTC and local time.\n3. Writing one small test around the date boundary.\n\nThe lesson is boring but true: weird bugs are usually ordinary bugs wearing a costume. If behavior looks random, check time, locale, and cached data first.",
+        "Nina Patel",
+        "JavaScript"
+    ],
+    [
+        "A Practical Morning Routine for SQL Performance",
+        "If your dashboard query feels slow, do this before opening five tabs and panicking:\n\nStep 1: Run EXPLAIN on the exact query users run.\nStep 2: Check whether WHERE and JOIN columns are indexed.\nStep 3: See if you're selecting more columns than you need.\n\nI started doing this as a daily 10-minute check, and it prevented most production surprises. One tiny index on a status column dropped a report from 8.2s to 420ms.\n\nPerformance tuning does not need heroics. Small, repeatable checks beat late-night firefighting every time.",
+        "Marco Lee",
+        "Database"
+    ],
+    [
+        "CSS Tricks I Actually Use in Real Projects",
+        "I love fancy demos, but real client work needs reliable CSS. These three are my go-to moves:\n\n1. clamp() for fluid text sizes so headings don't explode on mobile.\n2. gap instead of random margins on child elements.\n3. minmax() in CSS Grid for cards that resize gracefully.\n\nExample idea: grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));\n\nThat single line saves so many media queries. The best CSS trick is usually the one your future self understands in 2 seconds.",
+        "Rhea Gomez",
+        "CSS"
+    ],
+    [
+        "First Week with PHP: What I Wish Someone Told Me",
+        "I expected PHP to feel outdated, but honestly, it felt productive fast. I had forms posting data in an afternoon and a small CRUD app by day three.\n\nTwo things that made the biggest difference:\n- Use prepared statements from day one, even in tiny practice apps.\n- Keep your files organized early (config, database, routes, views).\n\nAlso, print_r is fine while learning. Don't let perfect architecture stop you from shipping small features. Momentum matters more in week one.",
+        "Aditya Rao",
+        "PHP"
+    ],
 ];
 
 $stmt = $conn->prepare("INSERT INTO posts (title, content, author, category) VALUES (?, ?, ?, ?)");
