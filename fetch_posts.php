@@ -1,93 +1,107 @@
 <?php
 include "db.php";
 
+function bindDynamicParams(mysqli_stmt $stmt, string $types, array &$values): void {
+    if ($types === '' || count($values) === 0) {
+        return;
+    }
+
+    $bindArgs = [$types];
+    foreach ($values as $index => &$value) {
+        $bindArgs[] = &$values[$index];
+    }
+
+    if (!call_user_func_array([$stmt, 'bind_param'], $bindArgs)) {
+        throw new RuntimeException('Failed to bind statement parameters.');
+    }
+}
+
 try {
+    $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+    $limit = isset($_GET['limit']) ? min(50, max(1, (int)$_GET['limit'])) : 6;
+    $offset = ($page - 1) * $limit;
 
-// Pagination parameters
-$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-$limit = isset($_GET['limit']) ? min(50, max(1, (int)$_GET['limit'])) : 6;
-$offset = ($page - 1) * $limit;
+    $search = isset($_GET['search']) ? trim($_GET['search']) : '';
+    $category = isset($_GET['category']) ? trim($_GET['category']) : '';
+    $sort = isset($_GET['sort']) && $_GET['sort'] === 'oldest' ? 'ASC' : 'DESC';
 
-// Search filter
-$search = isset($_GET['search']) ? trim($_GET['search']) : '';
+    $where = [];
+    $params = [];
+    $types = '';
 
-// Category filter
-$category = isset($_GET['category']) ? trim($_GET['category']) : '';
+    if ($search !== '') {
+        $where[] = '(title LIKE ? OR content LIKE ? OR author LIKE ?)';
+        $searchTerm = "%{$search}%";
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $types .= 'sss';
+    }
 
-// Build query
-$where = [];
-$params = [];
-$types = '';
+    if ($category !== '') {
+        $where[] = 'category = ?';
+        $params[] = $category;
+        $types .= 's';
+    }
 
-if ($search !== '') {
-    $where[] = "(title LIKE ? OR content LIKE ? OR author LIKE ?)";
-    $searchParam = "%{$search}%";
-    $params[] = $searchParam;
-    $params[] = $searchParam;
-    $params[] = $searchParam;
-    $types .= 'sss';
-}
+    $whereClause = count($where) > 0 ? 'WHERE ' . implode(' AND ', $where) : '';
 
-if ($category !== '') {
-    $where[] = "category = ?";
-    $params[] = $category;
-    $types .= 's';
-}
+    $countSql = "SELECT COUNT(*) AS total FROM posts {$whereClause}";
+    $countStmt = $conn->prepare($countSql);
+    if (!$countStmt) {
+        throw new RuntimeException('Failed to prepare count query.');
+    }
 
-$whereClause = count($where) > 0 ? "WHERE " . implode(" AND ", $where) : "";
+    $countParams = $params;
+    bindDynamicParams($countStmt, $types, $countParams);
+    $countStmt->execute();
+    $countResult = $countStmt->get_result();
+    $total = (int)$countResult->fetch_assoc()['total'];
+    $countStmt->close();
 
-// Get total count
-$countSql = "SELECT COUNT(*) AS total FROM posts {$whereClause}";
-$countStmt = $conn->prepare($countSql);
-if ($types !== '') {
-    $countStmt->bind_param($types, ...$params);
-}
-$countStmt->execute();
-$total = $countStmt->get_result()->fetch_assoc()['total'];
-$countStmt->close();
+    $sql = "SELECT id, title, content, author, category, created_at FROM posts {$whereClause} ORDER BY created_at {$sort}, id {$sort} LIMIT ? OFFSET ?";
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        throw new RuntimeException('Failed to prepare posts query.');
+    }
 
-// Fetch posts
-$sql = "SELECT id, title, content, author, category, created_at FROM posts {$whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?";
-$stmt = $conn->prepare($sql);
+    $queryParams = $params;
+    $queryParams[] = $limit;
+    $queryParams[] = $offset;
+    $queryTypes = $types . 'ii';
 
-$paramsCopy = $params;
-$paramsCopy[] = $limit;
-$paramsCopy[] = $offset;
-$fullTypes = $types . 'ii';
+    bindDynamicParams($stmt, $queryTypes, $queryParams);
+    $stmt->execute();
 
-$stmt->bind_param($fullTypes, ...$paramsCopy);
-$stmt->execute();
-$result = $stmt->get_result();
+    $result = $stmt->get_result();
+    $posts = [];
+    while ($row = $result->fetch_assoc()) {
+        $posts[] = $row;
+    }
+    $stmt->close();
 
-$posts = [];
-while ($row = $result->fetch_assoc()) {
-    $posts[] = $row;
-}
-$stmt->close();
+    $categories = [];
+    $catResult = $conn->query('SELECT DISTINCT category FROM posts ORDER BY category');
+    if ($catResult) {
+        while ($row = $catResult->fetch_assoc()) {
+            $categories[] = $row['category'];
+        }
+    }
 
-// Get categories for filter
-$catResult = $conn->query("SELECT DISTINCT category FROM posts ORDER BY category");
-$categories = [];
-while ($row = $catResult->fetch_assoc()) {
-    $categories[] = $row['category'];
-}
+    echo json_encode([
+        'posts' => $posts,
+        'pagination' => [
+            'page' => $page,
+            'limit' => $limit,
+            'total' => $total,
+            'totalPages' => $limit > 0 ? (int)ceil($total / $limit) : 0
+        ],
+        'categories' => $categories
+    ]);
 
-// Return JSON response
-echo json_encode([
-    "posts" => $posts,
-    "pagination" => [
-        "page" => $page,
-        "limit" => $limit,
-        "total" => (int)$total,
-        "totalPages" => ceil($total / $limit)
-    ],
-    "categories" => $categories
-]);
-
-$conn->close();
-
-} catch (Exception $e) {
+    $conn->close();
+} catch (Throwable $e) {
     http_response_code(500);
-    echo json_encode(["error" => $e->getMessage()]);
+    echo json_encode(['error' => $e->getMessage()]);
 }
 ?>
