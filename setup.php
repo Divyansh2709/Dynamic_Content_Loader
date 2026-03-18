@@ -6,6 +6,8 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
+$conn->set_charset("utf8mb4");
+
 // Create database
 $conn->query("CREATE DATABASE IF NOT EXISTS demo_db");
 $conn->select_db("demo_db");
@@ -123,14 +125,39 @@ $posts = [
 ];
 
 $stmt = $conn->prepare("INSERT INTO posts (title, content, author, category) VALUES (?, ?, ?, ?)");
+if (!$stmt) {
+    die("Failed to prepare insert statement: " . $conn->error);
+}
 
-foreach ($posts as $post) {
+$insertedCount = 0;
+$failedPosts = [];
+
+foreach ($posts as $index => $post) {
     $stmt->bind_param("ssss", $post[0], $post[1], $post[2], $post[3]);
-    $stmt->execute();
+
+    if ($stmt->execute()) {
+        $insertedCount++;
+    } else {
+        $failedPosts[] = [
+            'index' => $index + 1,
+            'title' => $post[0],
+            'error' => $stmt->error,
+        ];
+    }
 }
 
 $stmt->close();
-echo "<h2 style='color: green;'>✅ Database setup complete! Inserted " . count($posts) . " sample posts.</h2>";
+
+if (count($failedPosts) === 0) {
+    echo "<h2 style='color: green;'>✅ Database setup complete! Inserted {$insertedCount} sample posts.</h2>";
+} else {
+    echo "<h2 style='color: #b45309;'>⚠️ Setup completed with issues. Inserted {$insertedCount} out of " . count($posts) . " posts.</h2>";
+    echo "<ul>";
+    foreach ($failedPosts as $failed) {
+        echo "<li>Post #{$failed['index']} ({$failed['title']}): {$failed['error']}</li>";
+    }
+    echo "</ul>";
+}
 
 echo "<p><a href='index.php'>→ Go to the application</a></p>";
 
