@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dynamic Content Loading</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -32,7 +32,7 @@
             --modal-bg: rgba(255, 255, 255, 0.95);
             
             --transition-speed: 0.3s;
-            --font-main: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --font-main: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             
             --glass-blur: blur(12px);
         }
@@ -83,13 +83,17 @@
 
         header {
             padding: 40px 0 30px;
-            margin-bottom: 40px;
+            margin-bottom: 56px;
             border-bottom: 1px solid var(--card-border);
-            background: linear-gradient(to bottom, 
-                        color-mix(in srgb, var(--card-bg) 80%, transparent), 
-                        transparent);
+            background: linear-gradient(135deg, #e8e0ff 0%, #f0e8ff 100%);
             backdrop-filter: var(--glass-blur);
             -webkit-backdrop-filter: var(--glass-blur);
+            box-shadow: 0 14px 30px -22px rgba(90, 95, 207, 0.45);
+        }
+
+        body.dark-mode header {
+            background: linear-gradient(135deg, rgba(52, 57, 95, 0.55) 0%, rgba(26, 30, 52, 0.35) 100%);
+            box-shadow: 0 16px 34px -24px rgba(0, 0, 0, 0.65);
         }
 
         .header-content {
@@ -107,13 +111,54 @@
 
         header h1 { 
             font-size: 2.4rem; 
-            font-weight: 700;
-            margin-bottom: 4px; 
-            background: var(--primary-gradient);
+            font-weight: 800;
+            margin-bottom: 2px; 
+            line-height: 1.08;
+            color: #5a5fcf;
+            letter-spacing: -0.5px;
+            text-shadow: 0 0 24px rgba(90, 95, 207, 0.25);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        header h1 .title-bold {
+            font-weight: 800;
+            background: linear-gradient(90deg, #5a5fcf 0%, #7b7fff 100%);
             -webkit-background-clip: text;
             background-clip: text;
+            -webkit-text-fill-color: transparent;
             color: transparent;
-            letter-spacing: -0.5px;
+            display: inline-block;
+        }
+
+        header h1 .title-light {
+            font-weight: 300;
+            letter-spacing: 0.3px;
+            background: linear-gradient(90deg, #667eea 0%, #8b9fff 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+            display: inline-block;
+        }
+
+        body.dark-mode header h1 .title-bold {
+            color: transparent;
+            background: linear-gradient(90deg, #9ba8ff 0%, #b3baff 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: none;
+        }
+
+        body.dark-mode header h1 .title-light {
+            color: transparent;
+            background: linear-gradient(90deg, #8b9bff 0%, #a8b8ff 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
         
         header p { 
@@ -208,9 +253,11 @@
             top: 50%;
             transform: translateY(-50%);
             font-size: 1.1rem;
-            color: var(--text-muted);
-            opacity: 0.7;
+            color: #3B82F6;
+            opacity: 0.85;
             pointer-events: none;
+            filter: brightness(0) saturate(100%) invert(63%) sepia(89%) saturate(1288%) hue-rotate(184deg);
+            font-weight: 600;
         }
 
         .category-filter, .sort-filter {
@@ -258,6 +305,7 @@
             background: var(--card-bg);
             border-radius: 16px;
             padding: 28px;
+            padding-top: 190px;
             box-shadow: var(--card-shadow);
             border: 1px solid var(--card-border);
             transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
@@ -279,10 +327,63 @@
             top: 0;
             left: 0;
             right: 0;
-            height: 4px;
+            height: 8px;
             background: var(--primary-gradient);
             opacity: 0;
-            transition: opacity 0.3s ease;
+            transition: opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+            z-index: 3;
+        }
+
+        /* Category-specific images positioned at top as header image */
+        .post::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 160px;
+            background-image: var(--post-card-image);
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: cover;
+            opacity: 0.85;
+            pointer-events: none;
+            z-index: 0;
+            border-radius: 16px 16px 0 0;
+            --post-card-image: none;
+        }
+
+        .post.post-cat-PHP::before {
+            background: linear-gradient(135deg, #e0b0ff 0%, #d78fff 100%);
+        }
+
+        .post.post-cat-PHP::after {
+            --post-card-image: url('https://st2.depositphotos.com/4021139/7394/i/450/depositphotos_73943277-stock-photo-php-concept.jpg');
+        }
+
+        .post.post-cat-JavaScript::before {
+            background: linear-gradient(135deg, #ffc107 0%, #ffda47 100%);
+        }
+
+        .post.post-cat-JavaScript::after {
+            --post-card-image: url('https://www.shutterstock.com/image-vector/javascript-programming-language-script-code-260nw-1062509657.jpg');
+            background-size: contain;
+        }
+
+        .post.post-cat-Database::before {
+            background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+        }
+
+        .post.post-cat-Database::after {
+            --post-card-image: url('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS8G14B0Ocwj2r1uisQl5ql66QmVKULQfflkA&s');
+        }
+
+        .post.post-cat-CSS::before {
+            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+        }
+
+        .post.post-cat-CSS::after {
+            --post-card-image: url('https://cdn.mos.cms.futurecdn.net/Vp9WvV7YKdH4k8sKRePcE8.jpg');
         }
 
         .post:hover {
@@ -291,8 +392,12 @@
             border-color: transparent;
         }
         
-        .post:hover::before {
-            opacity: 1;
+        .post:hover::before { opacity: 1; }
+
+        /* Ensure content stays above images */
+        .post-header, .post-excerpt, .post-footer {
+            position: relative;
+            z-index: 2;
         }
 
         .post-header {
@@ -361,7 +466,7 @@
         .post-excerpt {
             color: var(--text-color);
             opacity: 0.85;
-            font-size: 1rem;
+            font-size: 0.9rem;
             margin-bottom: 20px;
             line-height: 1.6;
             flex-grow: 1; /* Pushes footer down */
@@ -417,11 +522,9 @@
             background: var(--modal-bg);
             color: var(--text-color);
             border-radius: 20px;
-            padding: 40px;
             max-width: 750px;
             width: 100%;
             max-height: 85vh;
-            overflow-y: auto;
             position: relative;
             transform: translateY(30px) scale(0.95);
             transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -429,16 +532,57 @@
             border: 1px solid var(--card-border);
             backdrop-filter: var(--glass-blur);
             -webkit-backdrop-filter: var(--glass-blur);
+            isolation: isolate;
+            overflow: hidden;
+            --modal-watermark-image: none;
+        }
+
+        .modal::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: var(--modal-watermark-image);
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: cover;
+            opacity: 0.13;
+            pointer-events: none;
+            z-index: 0;
+            border-radius: inherit;
+        }
+
+        .modal-inner {
+            overflow-y: auto;
+            max-height: 85vh;
+            padding: 40px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .modal.modal-cat-PHP {
+            --modal-watermark-image: url('https://images.unsplash.com/photo-1599507593499-a3f7d7d97667?fm=jpg&q=60&w=3000&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8cGhwfGVufDB8fDB8fHww');
+        }
+
+        .modal.modal-cat-JavaScript {
+            --modal-watermark-image: url('https://www.squash.io/wp-content/uploads/2023/11/javascript-series.jpg');
+        }
+
+        .modal.modal-cat-Database {
+            --modal-watermark-image: url('https://cdn.corporatefinanceinstitute.com/assets/database-1024x703.jpeg');
+        }
+
+        .modal.modal-cat-CSS {
+            --modal-watermark-image: url('https://web.dev/static/css/image/hero-css.png');
         }
 
         /* Custom Scrollbar for Modal */
-        .modal::-webkit-scrollbar { width: 8px; }
-        .modal::-webkit-scrollbar-track { background: transparent; }
-        .modal::-webkit-scrollbar-thumb { 
+        .modal-inner::-webkit-scrollbar { width: 8px; }
+        .modal-inner::-webkit-scrollbar-track { background: transparent; }
+        .modal-inner::-webkit-scrollbar-thumb { 
             background: var(--card-border); 
             border-radius: 10px; 
         }
-        .modal::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+        .modal-inner::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
         .modal-overlay.active .modal {
             transform: translateY(0) scale(1);
@@ -673,7 +817,7 @@
             .controls { flex-direction: column; gap: 12px; }
             .search-box, .category-filter, .sort-filter { width: 100%; }
             #content { grid-template-columns: 1fr; }
-            .modal { padding: 24px; }
+            .modal-inner { padding: 24px; }
             .modal h2 { font-size: 1.8rem; }
             .modal-meta-container { flex-direction: column; align-items: flex-start; gap: 12px; }
         }
@@ -684,7 +828,10 @@
 <header>
     <div class="header-content">
         <div class="header-text">
-            <h1>Dynamic Content</h1>
+            <h1>
+                <span class="title-bold">Dynamic</span>
+                <span class="title-light">Content Loader</span>
+            </h1>
             <p>High-performance asynchronous data loading experience</p>
         </div>
         <button id="themeToggle" class="theme-btn" aria-label="Toggle Dark Mode">
@@ -726,18 +873,20 @@
 <!-- Premium Detail Modal -->
 <div class="modal-overlay" id="postModal" onclick="if(event.target===this)closeModal()">
     <div class="modal">
-        <button class="modal-close" onclick="closeModal()" aria-label="Close modal">&times;</button>
-        <h2 id="modalTitle"></h2>
-        
-        <div class="modal-meta-container">
-            <span id="modalCategory" class="post-category"></span>
-            <div class="modal-author-info">
-                <span id="modalAuthor" class="modal-author"></span>
-                <span id="modalDate" class="modal-date"></span>
+        <div class="modal-inner">
+            <button class="modal-close" onclick="closeModal()" aria-label="Close modal">&times;</button>
+            <h2 id="modalTitle"></h2>
+            
+            <div class="modal-meta-container">
+                <span id="modalCategory" class="post-category"></span>
+                <div class="modal-author-info">
+                    <span id="modalAuthor" class="modal-author"></span>
+                    <span id="modalDate" class="modal-date"></span>
+                </div>
             </div>
+            
+            <div class="modal-body" id="modalContent"></div>
         </div>
-        
-        <div class="modal-body" id="modalContent"></div>
     </div>
 </div>
 

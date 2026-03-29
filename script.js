@@ -198,7 +198,8 @@ function renderPosts(posts) {
     }
 
     contentEl.innerHTML = posts.map((post, i) => `
-        <div class="post" style="animation-delay: ${i * 0.08}s" onclick='openPost(${JSON.stringify(post).replace(/'/g, "&#39;")})' role="button" tabindex="0" aria-label="Read more about ${escapeHtml(post.title)}" onkeydown="if(event.key === 'Enter') this.click();">
+        <div class="post post-cat-${sanitizeCategoryClass(post.category)}" style="animation-delay: ${i * 0.08}s" onclick='openPost(${JSON.stringify(post).replace(/'/g, "&#39;")})' role="button" tabindex="0" aria-label="Read more about ${escapeHtml(post.title)}" onkeydown="if(event.key === 'Enter') this.click();">
+
             <div class="post-header">
                 <div class="post-title-wrapper">
                     <h3>${escapeHtml(post.title)}</h3>
@@ -231,6 +232,8 @@ function openPost(post) {
     currentScrollPos = window.scrollY; // Save position
     
     const modal = document.getElementById('postModal');
+    const modalPanel = modal.querySelector('.modal');
+    modalPanel.className = 'modal modal-cat-' + sanitizeCategoryClass(post.category);
     document.getElementById('modalTitle').textContent = post.title;
     
     document.getElementById('modalCategory').textContent = post.category;
@@ -370,6 +373,13 @@ function escapeHtml(str) {
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
+}
+
+function sanitizeCategoryClass(category) {
+    return String(category || 'General')
+        .trim()
+        .replace(/\s+/g, '-')
+        .replace(/[^a-zA-Z0-9_-]/g, '');
 }
 
 function formatDate(dateStr) {
