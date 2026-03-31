@@ -83,7 +83,7 @@ project-root/
 
 ### 1️⃣ Clone the Repository
 
-```bash
+
 git clone https://github.com/your-username/dynamic-content-app.git
 cd dynamic-content-app
 
