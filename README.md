@@ -85,6 +85,7 @@ project-root/
 
 
 git clone https://github.com/your-username/dynamic-content-app.git
+
 cd dynamic-content-app
 
 ---
@@ -150,7 +151,7 @@ GET /fetch_posts.php
 
 ### Example Response
 
-```json
+json
 {
   "posts": [
     {
