@@ -59,7 +59,9 @@
 ## 📁 Project Structure
 
 project-root/
+
 │
+
 ├── index.php            # Main frontend UI
 
 ├── fetch_posts.php      # Backend API endpoint
@@ -71,6 +73,7 @@ project-root/
 ├── script.js            # Frontend logic
 
 │
+
 └── assets/              # (Optional) images, styles, etc.
 
 
