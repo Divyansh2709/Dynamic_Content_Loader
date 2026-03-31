@@ -151,7 +151,7 @@ GET /fetch_posts.php
 
 ### Example Response
 
-json
+```json
 {
   "posts": [
     {
@@ -169,8 +169,7 @@ json
   },
   "categories": ["PHP", "JavaScript", "CSS"]
 }
-
----
+```
 
 ## 🧠 How It Works
 
