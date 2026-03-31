@@ -61,10 +61,15 @@
 project-root/
 │
 ├── index.php            # Main frontend UI
+
 ├── fetch_posts.php      # Backend API endpoint
+
 ├── db.php               # Database connection
+
 ├── setup.php            # DB setup & seeding
+
 ├── script.js            # Frontend logic
+
 │
 └── assets/              # (Optional) images, styles, etc.
 
