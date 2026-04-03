@@ -12,6 +12,15 @@ $conn->set_charset("utf8mb4");
 $conn->query("CREATE DATABASE IF NOT EXISTS demo_db");
 $conn->select_db("demo_db");
 
+// Create users table for authentication
+$conn->query("CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)");
+
 // Create posts table
 $conn->query("CREATE TABLE IF NOT EXISTS posts (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -19,8 +28,25 @@ $conn->query("CREATE TABLE IF NOT EXISTS posts (
     content TEXT NOT NULL,
     author VARCHAR(100) NOT NULL DEFAULT 'Anonymous',
     category VARCHAR(50) NOT NULL DEFAULT 'General',
+    user_id INT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )");
+
+// Ensure existing installations have user_id and FK/indexes
+$columnExistsResult = $conn->query("SHOW COLUMNS FROM posts LIKE 'user_id'");
+if ($columnExistsResult && $columnExistsResult->num_rows === 0) {
+    $conn->query("ALTER TABLE posts ADD COLUMN user_id INT NULL");
+}
+
+$indexExistsResult = $conn->query("SHOW INDEX FROM posts WHERE Key_name = 'idx_posts_user_id'");
+if ($indexExistsResult && $indexExistsResult->num_rows === 0) {
+    $conn->query("CREATE INDEX idx_posts_user_id ON posts (user_id)");
+}
+
+$fkExistsResult = $conn->query("SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = 'demo_db' AND TABLE_NAME = 'posts' AND CONSTRAINT_TYPE = 'FOREIGN KEY' AND CONSTRAINT_NAME = 'fk_posts_user'");
+if ($fkExistsResult && $fkExistsResult->num_rows === 0) {
+    $conn->query("ALTER TABLE posts ADD CONSTRAINT fk_posts_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL");
+}
 
 // Clear existing data and re-seed
 $conn->query("TRUNCATE TABLE posts");
@@ -121,6 +147,126 @@ $posts = [
         "I expected PHP to feel outdated, but honestly, it felt productive fast. I had forms posting data in an afternoon and a small CRUD app by day three.\n\nTwo things that made the biggest difference:\n- Use prepared statements from day one, even in tiny practice apps.\n- Keep your files organized early (config, database, routes, views).\n\nAlso, print_r is fine while learning. Don't let perfect architecture stop you from shipping small features. Momentum matters more in week one.",
         "Aditya Rao",
         "PHP"
+    ],
+    [
+        "Why Dynamic Loading Makes Sites Feel Faster",
+        "Users care less about technical details and more about how quickly a page feels usable. Dynamic loading helps by fetching smaller chunks of content instead of blocking the entire page on a full refresh.\n\nThis project follows that idea closely. Posts load asynchronously, searches update the visible results, and actions like create, edit, and delete happen without sending the user back to the top of the page. That keeps the interface responsive and easier to explore.\n\nA good rule is simple: only reload the part of the screen that actually changed.",
+        "Maya Collins",
+        "General"
+    ],
+    [
+        "Building a Cleaner Login Flow",
+        "A login page works best when it is focused on one thing: getting the user authenticated quickly. A strong login flow uses a clear visual hierarchy, helpful labels, and a path that leads straight into the main application.\n\nIn this project, the login page uses a split layout and keeps the content feed hidden until the session is verified. That makes the application feel more polished and avoids showing the wrong screen to guests.\n\nIf the authentication step succeeds, the user should immediately move into the main experience without extra friction.",
+        "Noah Bennett",
+        "PHP"
+    ],
+    [
+        "How Search Works in the Post Feed",
+        "Search feels simple from the outside, but it needs careful behavior behind the scenes. In this application, the search field updates the feed by sending a new request with the current filters, sort order, and page state.\n\nThat approach keeps the user in control. Instead of forcing a full reload, the app updates only the results area and preserves the rest of the interface. The result is a smoother experience that still feels immediate.\n\nGood search flows are fast, predictable, and forgiving when the user changes direction.",
+        "Sofia Ahmed",
+        "JavaScript"
+    ],
+    [
+        "Designing Cards That Read Well",
+        "Post cards do a lot of work in this project. They need to hold the title, author, category, excerpt, and actions without feeling crowded. A strong card layout balances spacing, typography, and visual hierarchy.\n\nThe best card designs are easy to scan. Put the title first, keep metadata small but readable, and make the call to action obvious. The category label should help with filtering, not compete with the content.\n\nWhen cards are built well, users can understand the feed at a glance.",
+        "Ethan Brooks",
+        "CSS"
+    ],
+    [
+        "What Makes an API Response Useful",
+        "An API response is more useful when it gives the frontend exactly what it needs, nothing more and nothing less. In this project, the fetch endpoint returns posts, pagination data, and categories so the UI can build itself from one request.\n\nThat design makes the frontend simpler. It does not need a separate request for categories or post counts. It can render the page, update filters, and decide whether to show a load-more button based on one response shape.\n\nSmall response contracts are easier to maintain and easier to debug.",
+        "Liam Carter",
+        "PHP"
+    ],
+    [
+        "A Better Way to Think About Categories",
+        "Categories work best when they are consistent and meaningful. They help readers browse, but they also help the system group posts, style cards, and support filtering.\n\nIn a content app like this one, categories should be short, familiar, and directly connected to the material. That keeps the filter menu useful and avoids unnecessary complexity when the data grows.\n\nA category should answer one question quickly: what type of post is this?",
+        "Olivia Grant",
+        "General"
+    ],
+    [
+        "Why State Management Matters Even in Small Apps",
+        "State management is not only for large frameworks. Even a small PHP and JavaScript app needs a clear idea of what state exists and who owns it. Page number, search text, filters, and the current user all affect what appears on screen.\n\nThis project keeps those values in one client-side state object and syncs them with the URL. That makes the app easier to reason about and makes browser navigation behave more naturally.\n\nA clean state model saves time every time you add a feature.",
+        "Daniel Moore",
+        "JavaScript"
+    ],
+    [
+        "Keeping Content Management Simple",
+        "A content management flow does not need to be complex to be useful. The most important actions are create, edit, delete, and view. If those steps are easy to find and easy to complete, the whole application feels stronger.\n\nThis project uses the same main feed for reading and managing posts. That reduces context switching and makes the experience feel more integrated.\n\nSimplicity is often the difference between a tool people try and a tool people keep using.",
+        "Emma Wilson",
+        "General"
+    ],
+    [
+        "Using Fetch Without Full Refreshes",
+        "The Fetch API is one of the easiest ways to make a page feel modern. You can submit forms, load posts, and update content without forcing the browser to restart the whole document.\n\nIn practice, that means better flow. The user stays in place, the interface stays visible, and the app can show a loading state only where it matters. That is much closer to how a native application behaves.\n\nOnce you get used to fetch-based flows, traditional page refreshes start to feel heavy.",
+        "Ava Patel",
+        "JavaScript"
+    ],
+    [
+        "The Value of a Consistent Color System",
+        "A consistent color palette makes an app feel intentional. In this project, the blue and violet tones appear across headers, buttons, cards, and highlights, which ties the interface together even when different sections are loaded independently.\n\nThe user may not name the palette, but they notice the consistency. That visual coherence makes the app feel more polished and helps separate it from generic starter templates.\n\nGood color systems reduce design decisions later because the rules are already clear.",
+        "Hannah Lee",
+        "CSS"
+    ],
+    [
+        "Session Cookies and Safer Login Pages",
+        "Login systems are usually simple on the surface but sensitive under the hood. Session cookies should be handled carefully so the app knows who is signed in without exposing that data to the browser.\n\nThis project already uses session-based auth, which is the right foundation for a small content app. After login, the server keeps track of the user and the frontend only changes what it displays.\n\nThat separation keeps authentication logic where it belongs: on the server.",
+        "Caleb Nguyen",
+        "PHP"
+    ],
+    [
+        "How to Structure a Growing Content Feed",
+        "Once a feed grows past a handful of items, structure matters. The page needs a way to sort, search, filter, and load more posts without becoming overwhelming.\n\nThe approach used here keeps the first screen lightweight and adds more content in batches. That is a good pattern for projects that need to stay usable as data grows.\n\nA well-structured feed should feel expandable, not cluttered.",
+        "Zara Khan",
+        "General"
+    ],
+    [
+        "Making Edit and Delete Actions Feel Safe",
+        "Management actions should be easy to use, but they should never feel accidental. Clear buttons, separate styling for destructive actions, and confirmation prompts all help users understand the impact of what they are doing.\n\nIn a content project like this one, edit and delete belong on the same card as the post they affect. That keeps the action connected to the item and reduces mistakes.\n\nGood action design is about clarity more than decoration.",
+        "Isabella Chen",
+        "JavaScript"
+    ],
+    [
+        "Why Small Projects Need Real Data Variety",
+        "A demo looks more complete when its content is varied. Different titles, categories, and authors make the feed feel like a real application instead of a placeholder.\n\nThat is why sample data matters. It lets the filters work, makes the load-more button meaningful, and gives the interface enough variety to show its layout strengths.\n\nEven a small project benefits from a realistic content mix.",
+        "Ryan Scott",
+        "General"
+    ],
+    [
+        "Reading Content in Smarter Batches",
+        "Loading a small batch of posts at a time is a practical compromise between speed and convenience. The user gets something useful immediately, and the app can request more only when needed.\n\nThis pattern works especially well for content grids, where too much data at once can make the page feel noisy. A batch-based approach keeps the layout breathable and the interface responsive.\n\nLoad less first, then continue when the user asks for more.",
+        "Grace Martinez",
+        "JavaScript"
+    ],
+    [
+        "Improving Feedback During Data Loading",
+        "When the app is fetching content, the user should know something is happening. Skeleton cards, a subtle message, or a load-more spinner are all simple ways to reduce uncertainty.\n\nGood feedback does not need to be loud. It just needs to be clear enough that the user trusts the interface while the request is in progress.\n\nThe more transparent the loading state, the smoother the app feels.",
+        "Mason Turner",
+        "CSS"
+    ],
+    [
+        "Keeping Routes and Pages Easy to Follow",
+        "A project becomes easier to maintain when every page has a clear purpose. Login handles authentication, index handles the main content, and the API handles data operations.\n\nThat separation matches how the application is already structured. It keeps logic from leaking into the wrong place and makes future changes much easier to apply.\n\nClean routes are one of the easiest ways to keep a web project understandable.",
+        "Ella Johnson",
+        "PHP"
+    ],
+    [
+        "How to Make a Student Project Feel Finished",
+        "A project feels finished when the details line up: consistent layout, clear feedback, real data, and a flow that makes sense from start to finish.\n\nThis app already has the right foundation. Adding more content makes it feel less like a prototype and more like a complete experience, especially when the login page and feed share the same visual system.\n\nPolish is usually a collection of small decisions that all agree with each other.",
+        "Noah Rivera",
+        "General"
+    ],
+    [
+        "Practical Notes on Building a Dashboard",
+        "A dashboard does not have to be complicated to be useful. It needs live data, a responsive layout, clear actions, and a way to let users focus on what matters.\n\nFor this project, the post feed behaves like a lightweight dashboard. It loads content asynchronously, supports search and filters, and keeps the main actions close to the data they affect.\n\nThat combination is enough to make the interface feel purposeful.",
+        "Sophia Davis",
+        "Database"
+    ],
+    [
+        "Why Clean Sample Content Helps Your UI",
+        "Sample content is not just filler. It shows whether spacing, typography, and hierarchy actually work in practice. Long titles, short titles, mixed authors, and different categories all reveal strengths and weak spots in the layout.\n\nWhen the sample data is carefully chosen, the whole project looks more believable. The interface can demonstrate filtering, searching, and loading behavior with real variety instead of repeated dummy text.\n\nGood demo content makes a good demo look intentional.",
+        "Aiden Walker",
+        "CSS"
     ],
 ];
 
