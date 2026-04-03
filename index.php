@@ -1,3 +1,12 @@
+<?php
+declare(strict_types=1);
+require_once __DIR__ . '/config/bootstrap.php';
+
+if (!isLoggedIn()) {
+    header('Location: login.php');
+    exit;
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -195,6 +204,179 @@
         }
         
         .theme-icon { font-size: 1.1rem; }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .auth-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 999px;
+            padding: 8px 12px;
+            box-shadow: var(--card-shadow);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+        }
+
+        .auth-pill a,
+        .auth-pill button {
+            border: none;
+            background: transparent;
+            color: var(--text-heading);
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .auth-pill .btn-add-post {
+            background: var(--primary-gradient);
+            color: #fff;
+            border-radius: 999px;
+            padding: 8px 14px;
+        }
+
+        .auth-pill .user-name {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            max-width: 180px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .mine-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            border: 2px solid var(--input-border);
+            background: var(--input-bg);
+            color: var(--text-heading);
+            min-width: 170px;
+            font-size: 0.92rem;
+            font-weight: 500;
+        }
+
+        .mine-toggle input {
+            accent-color: var(--primary-accent);
+        }
+
+        .flash-message {
+            margin: 14px 0 20px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            display: none;
+        }
+
+        .flash-message.error {
+            display: block;
+            background: rgba(229, 62, 62, 0.12);
+            border: 1px solid rgba(229, 62, 62, 0.35);
+            color: #c53030;
+        }
+
+        .flash-message.success {
+            display: block;
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            color: #047857;
+        }
+
+        .post-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .post-actions button {
+            border: 1px solid var(--card-border);
+            background: var(--card-bg);
+            color: var(--text-heading);
+            border-radius: 8px;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .post-actions .danger {
+            color: #b91c1c;
+            border-color: rgba(185, 28, 28, 0.25);
+        }
+
+        .post-form .field {
+            margin-bottom: 14px;
+        }
+
+        .post-form label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: var(--text-heading);
+        }
+
+        .post-form input,
+        .post-form textarea,
+        .post-form select {
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            border: 2px solid var(--input-border);
+            background: var(--input-bg);
+            color: var(--text-heading);
+            font-family: var(--font-main);
+        }
+
+        .post-form textarea {
+            min-height: 140px;
+            resize: vertical;
+        }
+
+        .post-form button {
+            border: none;
+            background: var(--primary-gradient);
+            color: #fff;
+            font-weight: 700;
+            padding: 12px 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .quick-add-btn {
+            border: none;
+            border-radius: 12px;
+            background: var(--primary-gradient);
+            color: #fff;
+            font-weight: 700;
+            padding: 12px 16px;
+            cursor: pointer;
+            min-width: 170px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 10px 20px -14px rgba(90, 95, 207, 0.75);
+        }
+
+        .quick-add-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 16px 24px -16px rgba(90, 95, 207, 0.85);
+        }
 
         /* Controls Area */
         .controls-wrapper {
@@ -708,54 +890,42 @@
             100% { opacity: 1; transform: scale(1) translateY(0); }
         }
 
-        /* Pagination Styling - Modern */
+        /* Load More Styling */
         .pagination {
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 10px;
             margin-top: 40px;
             flex-wrap: wrap;
         }
 
-        .pagination button {
-            padding: 10px 18px;
-            border: 2px solid transparent;
-            background: var(--card-bg);
-            color: var(--text-heading);
-            border-radius: 12px;
-            cursor: pointer;
-            font-size: 0.95rem;
-            font-family: var(--font-main);
-            font-weight: 600;
-            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-
-        .pagination button:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: var(--card-shadow);
-            color: var(--primary-accent);
-        }
-
-        .pagination button.active {
+        .load-more-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: min(100%, 320px);
+            margin: 8px auto 0;
+            padding: 14px 22px;
+            border: 0;
+            border-radius: 999px;
             background: var(--primary-gradient);
             color: #fff;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-        }
-
-        .pagination button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            box-shadow: none;
-            background: var(--input-bg);
-            border-color: var(--card-border);
-        }
-
-        .page-info {
+            font-size: 1rem;
             font-weight: 700;
-            color: var(--text-muted);
-            padding: 0 4px;
+            cursor: pointer;
+            box-shadow: 0 12px 24px -14px rgba(90, 95, 207, 0.9);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+        }
+
+        .load-more-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 16px 28px -16px rgba(90, 95, 207, 0.95);
+        }
+
+        .load-more-btn:disabled {
+            cursor: wait;
+            opacity: 0.7;
         }
 
         /* Empty/Error States */
@@ -834,10 +1004,21 @@
             </h1>
             <p>High-performance asynchronous data loading experience</p>
         </div>
-        <button id="themeToggle" class="theme-btn" aria-label="Toggle Dark Mode">
-            <span class="theme-icon">🌙</span> 
-            <span class="theme-text">Dark</span>
-        </button>
+        <div class="header-actions">
+            <div id="guestActions" class="auth-pill">
+                <a href="login.php">Login</a>
+                <a href="register.php">Register</a>
+            </div>
+            <div id="userActions" class="auth-pill hidden">
+                <span id="userName" class="user-name"></span>
+                <button type="button" id="addPostBtn" class="btn-add-post">Add Post</button>
+                <button type="button" id="logoutBtn">Logout</button>
+            </div>
+            <button id="themeToggle" class="theme-btn" aria-label="Toggle Dark Mode">
+                <span class="theme-icon">🌙</span>
+                <span class="theme-text">Dark</span>
+            </button>
+        </div>
     </div>
 </header>
 
@@ -858,6 +1039,11 @@
                     <option value="oldest">Oldest First</option>
                 </select>
             </div>
+            <button type="button" id="quickAddPostBtn" class="quick-add-btn">+ Add New Post</button>
+            <label class="mine-toggle hidden" for="mineOnly">
+                <input type="checkbox" id="mineOnly">
+                My posts only
+            </label>
         </div>
     </div>
 
@@ -865,9 +1051,11 @@
         <span id="resultCount">Loading database records...</span>
     </div>
 
+    <div id="flashMessage" class="flash-message"></div>
+
     <div id="content"></div>
 
-    <div id="pagination" class="pagination"></div>
+    <div id="loadMoreContainer" class="pagination"></div>
 </div>
 
 <!-- Premium Detail Modal -->
@@ -886,6 +1074,31 @@
             </div>
             
             <div class="modal-body" id="modalContent"></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="postFormModal" onclick="if(event.target===this)closePostFormModal()">
+    <div class="modal">
+        <div class="modal-inner">
+            <button class="modal-close" onclick="closePostFormModal()" aria-label="Close form">&times;</button>
+            <h2 id="postFormTitle">Add Post</h2>
+            <form id="postForm" class="post-form">
+                <input type="hidden" id="postId">
+                <div class="field">
+                    <label for="postTitle">Title</label>
+                    <input type="text" id="postTitle" maxlength="255" required>
+                </div>
+                <div class="field">
+                    <label for="postCategory">Category</label>
+                    <input type="text" id="postCategory" required>
+                </div>
+                <div class="field">
+                    <label for="postContent">Content</label>
+                    <textarea id="postContent" required></textarea>
+                </div>
+                <button type="submit" id="postSubmitBtn">Create Post</button>
+            </form>
         </div>
     </div>
 </div>

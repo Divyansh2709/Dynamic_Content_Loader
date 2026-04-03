@@ -1,67 +1,109 @@
 const state = {
-    page: 1,
+    offset: 0,
     limit: 6,
     search: '',
     category: '',
     sort: 'newest',
-    totalPages: 0,
+    mine: false,
     total: 0,
-    categoriesLoaded: false
+    hasMore: false,
+    categoriesLoaded: false,
+    user: null
 };
 
 let searchTimeout = null;
 let currentScrollPos = 0; // For modal handling
+const postMap = new Map();
 
-document.addEventListener('DOMContentLoaded', () => {
-    initTheme();
-    readUrlParams();
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('DOMContentLoaded fired - initializing app');
     
-    // Set initial values in DOM
-    document.getElementById('searchInput').value = state.search;
-    document.getElementById('sortFilter').value = state.sort;
-
-    loadPosts();
-
-    // Event Listeners with enhanced UX
-    const searchInput = document.getElementById('searchInput');
-    searchInput.addEventListener('input', (e) => {
-        clearTimeout(searchTimeout);
-        // Add subtle loading indicator on input wrapper if desired
-        searchTimeout = setTimeout(() => {
-            state.search = e.target.value;
-            state.page = 1;
-            updateUrl();
-            loadPosts();
-        }, 400); // Slightly longer debounce for better API usage
-    });
-
-    document.getElementById('categoryFilter').addEventListener('change', (e) => {
-        state.category = e.target.value;
-        state.page = 1;
-        updateUrl();
-        loadPosts();
-    });
-    
-    document.getElementById('sortFilter').addEventListener('change', (e) => {
-        state.sort = e.target.value;
-        state.page = 1;
-        updateUrl();
-        loadPosts();
-    });
-
-    // Handle back/forward browser buttons flawlessly
-    window.addEventListener('popstate', () => {
+    try {
+        initTheme();
         readUrlParams();
-        document.getElementById('searchInput').value = state.search || '';
-        document.getElementById('categoryFilter').value = state.category || '';
-        document.getElementById('sortFilter').value = state.sort || 'newest';
-        loadPosts();
-    });
+        await hydrateAuth();
+        
+        // Set initial values in DOM - with null checks
+        const searchInputEl = document.getElementById('searchInput');
+        const sortFilterEl = document.getElementById('sortFilter');
+        const categoryFilterEl = document.getElementById('categoryFilter');
+        const mineOnlyEl = document.getElementById('mineOnly');
+        
+        if (searchInputEl) searchInputEl.value = state.search;
+        if (sortFilterEl) sortFilterEl.value = state.sort;
+        if (mineOnlyEl) mineOnlyEl.checked = state.mine;
+
+        wireAuthActions();
+        wirePostForm();
+
+        console.log('Calling loadPosts()...');
+        await loadPosts();
+        console.log('loadPosts() completed');
+
+        // Event Listeners with enhanced UX
+        if (searchInputEl) {
+            searchInputEl.addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    state.search = e.target.value;
+                    state.offset = 0;
+                    updateUrl();
+                    loadPosts();
+                }, 400);
+            });
+        }
+
+        if (categoryFilterEl) {
+            categoryFilterEl.addEventListener('change', (e) => {
+                state.category = e.target.value;
+                state.offset = 0;
+                updateUrl();
+                loadPosts();
+            });
+        }
+        
+        if (sortFilterEl) {
+            sortFilterEl.addEventListener('change', (e) => {
+                state.sort = e.target.value;
+                state.offset = 0;
+                updateUrl();
+                loadPosts();
+            });
+        }
+
+        if (mineOnlyEl) {
+            mineOnlyEl.addEventListener('change', (e) => {
+                if (!state.user && e.target.checked) {
+                    e.target.checked = false;
+                    showFlash('Please log in to filter your own posts.', true);
+                    return;
+                }
+
+                state.mine = e.target.checked;
+                state.offset = 0;
+                updateUrl();
+                loadPosts();
+            });
+        }
+
+        // Handle back/forward browser buttons flawlessly
+        window.addEventListener('popstate', () => {
+            readUrlParams();
+            if (searchInputEl) searchInputEl.value = state.search || '';
+            if (categoryFilterEl) categoryFilterEl.value = state.category || '';
+            if (sortFilterEl) sortFilterEl.value = state.sort || 'newest';
+            if (mineOnlyEl) mineOnlyEl.checked = state.mine;
+            loadPosts();
+        });
     
-    // Dark mode toggle
-    const themeBtn = document.getElementById('themeToggle');
-    if (themeBtn) {
-        themeBtn.addEventListener('click', toggleTheme);
+        // Dark mode toggle
+        const themeBtn = document.getElementById('themeToggle');
+        if (themeBtn) {
+            themeBtn.addEventListener('click', toggleTheme);
+        }
+    } catch (error) {
+        console.error('Error during app initialization:', error);
+        showFlash('Error initializing app. Please refresh the page.', true);
     }
 });
 
@@ -98,18 +140,19 @@ function updateThemeBtn(isDark) {
 
 function readUrlParams() {
     const params = new URLSearchParams(window.location.search);
-    if (params.has('page')) state.page = parseInt(params.get('page')) || 1;
+    state.offset = 0;
     if (params.has('search')) state.search = params.get('search');
     if (params.has('category')) state.category = params.get('category');
     if (params.has('sort')) state.sort = params.get('sort');
+    state.mine = params.get('mine') === '1';
 }
 
 function updateUrl() {
     const params = new URLSearchParams();
-    if (state.page > 1) params.set('page', state.page);
     if (state.search) params.set('search', state.search);
     if (state.category) params.set('category', state.category);
     if (state.sort && state.sort !== 'newest') params.set('sort', state.sort);
+    if (state.mine) params.set('mine', '1');
     
     const newUrl = `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}`;
     window.history.pushState({ path: newUrl }, '', newUrl);
@@ -117,68 +160,153 @@ function updateUrl() {
 
 /* --- Core Fetch Logic --- */
 
-async function loadPosts() {
-    const contentEl = document.getElementById('content');
-    const paginationEl = document.getElementById('pagination');
-    const statusEl = document.getElementById('resultCount');
-
-    // Show smooth skeletons
-    contentEl.innerHTML = renderSkeletons(state.limit);
-    paginationEl.innerHTML = '';
-    
-    // Subtle loading state in status bar
-    statusEl.innerHTML = '<span style="opacity: 0.7; display: flex; align-items: center; gap: 8px;"><svg class="spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="24 40" stroke-opacity="0.8"/></svg> Fetching latest data...</span>';
-
-    // Add spinner keyframes dynamically if not present
-    if (!document.getElementById('spinnerStyles')) {
-        const style = document.createElement('style');
-        style.id = 'spinnerStyles';
-        style.textContent = '@keyframes spin { 100% { transform: rotate(360deg); } }';
-        document.head.appendChild(style);
-    }
-
+async function loadPosts(options = {}) {
     try {
+        const { append = false } = options;
+        
+        // Get elements - be defensive
+        const contentEl = document.getElementById('content');
+        const loadMoreContainer = document.getElementById('loadMoreContainer') || document.getElementById('pagination');
+        const statusEl = document.getElementById('resultCount');
+        const loadMoreBtn = document.getElementById('loadMoreBtn');
+
+        // Critical check: if content element doesn't exist, something is very wrong
+        if (!contentEl) {
+            console.error('FATAL: #content element not found in DOM');
+            return;
+        }
+
+        if (append) {
+            // Append mode - loading more posts
+            if (loadMoreBtn) {
+                loadMoreBtn.disabled = true;
+                loadMoreBtn.textContent = 'Loading...';
+            }
+            if (statusEl) {
+                statusEl.innerHTML = '<span style="opacity: 0.7; display: flex; align-items: center; gap: 8px;"><svg class="spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="24 40" stroke-opacity="0.8"/></svg> Loading more posts...</span>';
+            }
+        } else {
+            // Initial load or filter change - show skeletons
+            const skeletons = renderSkeletons(state.limit);
+            if (skeletons) {
+                contentEl.innerHTML = skeletons;
+            }
+            
+            if (loadMoreContainer) {
+                loadMoreContainer.innerHTML = '';
+            }
+            
+            if (statusEl) {
+                statusEl.innerHTML = '<span style="opacity: 0.7; display: flex; align-items: center; gap: 8px;"><svg class="spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="24 40" stroke-opacity="0.8"/></svg> Fetching latest data...</span>';
+            }
+        }
+
+        // Add spinner keyframes
+        if (!document.getElementById('spinnerStyles')) {
+            const style = document.createElement('style');
+            style.id = 'spinnerStyles';
+            style.textContent = '@keyframes spin { 100% { transform: rotate(360deg); } }';
+            document.head.appendChild(style);
+        }
+
+        // Fetch posts from API
         const params = new URLSearchParams({
-            page: state.page,
             limit: state.limit,
+            offset: state.offset,
             search: state.search,
             category: state.category,
             sort: state.sort
         });
 
-        // Simulate slight network delay for visual smoothness of skeletons if response is too fast
+        if (state.mine) {
+            params.set('mine', '1');
+        }
+
+        // Wait for both API response and minimum skeleton display time
         const [response] = await Promise.all([
-            fetch(`fetch_posts.php?${params}`),
-            new Promise(res => setTimeout(res, 300)) // Min 300ms showing skeleton
+            fetch(`api/fetch_posts.php?${params}`),
+            new Promise(res => setTimeout(res, 300))
         ]);
 
-        if (!response.ok) throw new Error(`Server responded with ${response.status}`);
-
+        // Handle response
         const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || `Server responded with ${response.status}`);
+        }
 
-        state.totalPages = data.pagination.totalPages;
-        state.total = data.pagination.total;
+        // Update state
+        const normalizedTotal = Number(data.total ?? data?.pagination?.total ?? 0);
+        const normalizedHasMore = data.hasMore !== undefined
+            ? Boolean(data.hasMore)
+            : state.offset + Number(state.limit) < normalizedTotal;
 
-        if (!state.categoriesLoaded && data.categories.length > 0) {
-            populateCategories(data.categories);
-            document.getElementById('categoryFilter').value = state.category;
+        state.total = Number.isFinite(normalizedTotal) ? normalizedTotal : 0;
+        state.hasMore = normalizedHasMore;
+
+        // Clear post map if not appending
+        if (!append) {
+            postMap.clear();
+        }
+
+        // Store posts for edit/delete
+        (data.posts || []).forEach((post) => {
+            postMap.set(Number(post.id), post);
+        });
+
+        // Load categories if not already done
+        const categories = Array.isArray(data.categories) ? data.categories : [];
+        if (!state.categoriesLoaded && categories.length > 0) {
+            populateCategories(categories);
+            const categoryFilter = document.getElementById('categoryFilter');
+            if (categoryFilter) {
+                categoryFilter.value = state.category;
+            }
             state.categoriesLoaded = true;
         }
 
-        renderPosts(data.posts);
-        renderPagination();
+        // Render posts
+        const posts = Array.isArray(data.posts) ? data.posts : [];
+        if (append) {
+            appendPosts(posts);
+        } else {
+            renderPosts(posts);
+        }
+
+        // Update UI
+        renderLoadMoreButton();
         updateStatusBar();
+        console.log('✓ Posts loaded successfully');
 
     } catch (error) {
-        console.error('Failed to load posts:', error);
-        contentEl.innerHTML = `
-            <div class="error-state">
-                <div class="icon">⚠️</div>
-                <h3>Connection Error</h3>
-                <p>${escapeHtml(error.message)}</p>
-                <button onclick="loadPosts()">Try Again</button>
-            </div>`;
-        statusEl.textContent = 'Error loading records';
+        console.error('✗ Error in loadPosts:', error);
+        
+        const contentEl = document.getElementById('content');
+        const statusEl = document.getElementById('resultCount');
+        const loadMoreBtn = document.getElementById('loadMoreBtn');
+
+        if (options.append) {
+            // Load more failed - rollback and show error
+            if (loadMoreBtn) {
+                loadMoreBtn.disabled = false;
+                loadMoreBtn.textContent = 'Load More Posts';
+            }
+            state.offset = Math.max(0, state.offset - state.limit);
+            showFlash(error.message || 'Failed to load more posts.', true);
+        } else {
+            // Initial load failed - show error state
+            if (contentEl) {
+                contentEl.innerHTML = `
+                    <div class="error-state">
+                        <div class="icon">⚠️</div>
+                        <h3>Connection Error</h3>
+                        <p>${escapeHtml(error.message)}</p>
+                        <button onclick="loadPosts()">Try Again</button>
+                    </div>`;
+            }
+            if (statusEl) {
+                statusEl.textContent = 'Error loading records';
+            }
+        }
     }
 }
 
@@ -197,8 +325,36 @@ function renderPosts(posts) {
         return;
     }
 
-    contentEl.innerHTML = posts.map((post, i) => `
-        <div class="post post-cat-${sanitizeCategoryClass(post.category)}" style="animation-delay: ${i * 0.08}s" onclick='openPost(${JSON.stringify(post).replace(/'/g, "&#39;")})' role="button" tabindex="0" aria-label="Read more about ${escapeHtml(post.title)}" onkeydown="if(event.key === 'Enter') this.click();">
+    contentEl.innerHTML = posts.map((post, index) => createPostCardHTML(post, index * 0.08, Number(post.id))).join('');
+}
+
+function appendPosts(posts) {
+    const contentEl = document.getElementById('content');
+
+    if (!posts || posts.length === 0) {
+        return;
+    }
+
+    const existingIds = new Set(Array.from(contentEl.querySelectorAll('.post')).map((postEl) => postEl.dataset.postId));
+    const fragment = document.createDocumentFragment();
+
+    posts.forEach((post, index) => {
+        const postId = String(post.id);
+        if (existingIds.has(postId)) {
+            return;
+        }
+
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = createPostCardHTML(post, (index + 1) * 0.06, postId);
+        fragment.appendChild(wrapper.firstElementChild);
+    });
+
+    contentEl.appendChild(fragment);
+}
+
+function createPostCardHTML(post, animationDelay, postId) {
+    return `
+        <div class="post post-cat-${sanitizeCategoryClass(post.category)}" data-post-id="${postId}" style="animation-delay: ${animationDelay}s" onclick='openPost(${JSON.stringify(post).replace(/'/g, "&#39;")})' role="button" tabindex="0" aria-label="Read more about ${escapeHtml(post.title)}" onkeydown="if(event.key === 'Enter') this.click();">
 
             <div class="post-header">
                 <div class="post-title-wrapper">
@@ -222,35 +378,60 @@ function renderPosts(posts) {
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
                 </span>
             </div>
-        </div>
-    `).join('');
+            ${post.can_manage ? `
+            <div class="post-actions">
+                <button type="button" onclick="event.stopPropagation(); openEditPostModal(${Number(post.id)});">Edit</button>
+                <button type="button" class="danger" onclick="event.stopPropagation(); deletePost(${Number(post.id)});">Delete</button>
+            </div>` : ''}
+        </div>`;
 }
 
-/* --- Modal Actions --- */
+function loadMorePosts() {
+    if (!state.hasMore) {
+        return;
+    }
+
+    state.offset += state.limit;
+    updateUrl();
+    loadPosts({ append: true });
+}
+
+function renderLoadMoreButton() {
+    const el = document.getElementById('loadMoreContainer') || document.getElementById('pagination');
+
+    if (!el) {
+        return;
+    }
+
+    if (!state.hasMore) {
+        el.innerHTML = '';
+        return;
+    }
+
+    el.innerHTML = `
+        <button type="button" id="loadMoreBtn" class="load-more-btn" onclick="loadMorePosts()">
+            Load More Posts
+        </button>
+    `;
+}
 
 function openPost(post) {
-    currentScrollPos = window.scrollY; // Save position
-    
+    currentScrollPos = window.scrollY;
     const modal = document.getElementById('postModal');
-    const modalPanel = modal.querySelector('.modal');
-    modalPanel.className = 'modal modal-cat-' + sanitizeCategoryClass(post.category);
+
+    modal.querySelector('.modal').className = 'modal modal-cat-' + sanitizeCategoryClass(post.category);
     document.getElementById('modalTitle').textContent = post.title;
-    
     document.getElementById('modalCategory').textContent = post.category;
     document.getElementById('modalCategory').className = 'post-category cat-' + post.category;
-    
     document.getElementById('modalAuthor').textContent = 'Written by ' + post.author;
     document.getElementById('modalDate').textContent = formatDate(post.created_at);
-    
     document.getElementById('modalContent').textContent = post.content;
-    
+
     modal.classList.add('active');
-    
-    // Prevent background scrolling while showing modal gracefully
     document.body.style.position = 'fixed';
     document.body.style.top = `-${currentScrollPos}px`;
     document.body.style.width = '100%';
-    document.body.style.overflowY = 'scroll'; // Prevent layout shift from scrollbar disappearing
+    document.body.style.overflowY = 'scroll';
 }
 
 function closeModal() {
@@ -268,75 +449,196 @@ function closeModal() {
     window.scrollTo(0, currentScrollPos);
 }
 
+function openCreatePostModal() {
+    if (!state.user) {
+        showFlash('You must be logged in to create a post.', true);
+        return;
+    }
+
+    document.getElementById('postFormTitle').textContent = 'Add Post';
+    document.getElementById('postSubmitBtn').textContent = 'Create Post';
+    document.getElementById('postId').value = '';
+    document.getElementById('postTitle').value = '';
+    document.getElementById('postCategory').value = '';
+    document.getElementById('postContent').value = '';
+    document.getElementById('postFormModal').classList.add('active');
+}
+
+function openEditPostModal(postId) {
+    const post = postMap.get(Number(postId));
+    if (!post) {
+        showFlash('Post data not found. Please refresh.', true);
+        return;
+    }
+
+    document.getElementById('postFormTitle').textContent = 'Edit Post';
+    document.getElementById('postSubmitBtn').textContent = 'Update Post';
+    document.getElementById('postId').value = String(post.id);
+    document.getElementById('postTitle').value = decodeEntities(post.title);
+    document.getElementById('postCategory').value = decodeEntities(post.category);
+    document.getElementById('postContent').value = decodeEntities(post.content);
+    document.getElementById('postFormModal').classList.add('active');
+}
+
+function closePostFormModal() {
+    document.getElementById('postFormModal').classList.remove('active');
+}
+
+function wirePostForm() {
+    const form = document.getElementById('postForm');
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        const id = Number(document.getElementById('postId').value || 0);
+        const payload = {
+            title: document.getElementById('postTitle').value.trim(),
+            content: document.getElementById('postContent').value.trim(),
+            category: document.getElementById('postCategory').value.trim()
+        };
+
+        if (!payload.title || !payload.content || !payload.category) {
+            showFlash('Please complete title, content, and category.', true);
+            return;
+        }
+
+        try {
+            const endpoint = id > 0 ? 'api/update_post.php' : 'api/create_post.php';
+            if (id > 0) payload.id = id;
+
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Unable to save post.');
+            }
+
+            closePostFormModal();
+            showFlash(data.message || 'Post saved successfully.');
+            state.offset = 0;
+            updateUrl();
+            loadPosts();
+        } catch (error) {
+            showFlash(error.message || 'Failed to save post.', true);
+        }
+    });
+}
+
+async function deletePost(postId) {
+    if (!confirm('Delete this post permanently?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('api/delete_post.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: Number(postId) })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || 'Unable to delete post.');
+        }
+
+        showFlash(data.message || 'Post deleted successfully.');
+        loadPosts();
+    } catch (error) {
+        showFlash(error.message || 'Delete failed.', true);
+    }
+}
+
+async function hydrateAuth() {
+    try {
+        const response = await fetch('auth/me.php');
+        const data = await response.json();
+        state.user = data && data.authenticated ? data.user : null;
+    } catch (error) {
+        state.user = null;
+    }
+
+    updateAuthUI();
+}
+
+function wireAuthActions() {
+    const addPostBtn = document.getElementById('addPostBtn');
+    const quickAddPostBtn = document.getElementById('quickAddPostBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+
+    if (addPostBtn) {
+        addPostBtn.addEventListener('click', openCreatePostModal);
+    }
+
+    if (quickAddPostBtn) {
+        quickAddPostBtn.addEventListener('click', openCreatePostModal);
+    }
+
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch('auth/logout.php', { method: 'POST' });
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Logout failed.');
+                }
+
+                state.user = null;
+                state.mine = false;
+                document.getElementById('mineOnly').checked = false;
+                updateAuthUI();
+                updateUrl();
+                window.location.href = 'login.php';
+            } catch (error) {
+                showFlash(error.message || 'Logout failed.', true);
+            }
+        });
+    }
+}
+
+function updateAuthUI() {
+    const guestActions = document.getElementById('guestActions');
+    const userActions = document.getElementById('userActions');
+    const userName = document.getElementById('userName');
+    const mineToggle = document.querySelector('.mine-toggle');
+
+    if (state.user) {
+        guestActions.classList.add('hidden');
+        userActions.classList.remove('hidden');
+        userName.textContent = `Hi, ${state.user.name}`;
+        mineToggle.classList.remove('hidden');
+    } else {
+        guestActions.classList.remove('hidden');
+        userActions.classList.add('hidden');
+        userName.textContent = '';
+        mineToggle.classList.add('hidden');
+    }
+}
+
+function showFlash(message, isError = false) {
+    const flash = document.getElementById('flashMessage');
+    if (!flash) return;
+
+    flash.className = `flash-message ${isError ? 'error' : 'success'}`;
+    flash.textContent = message;
+    setTimeout(() => {
+        flash.className = 'flash-message';
+        flash.textContent = '';
+    }, 3000);
+}
+
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeModal();
+    if (e.key === 'Escape') closePostFormModal();
 });
 
-/* --- Utilities & Pagination --- */
+/* --- Utilities & Load More --- */
 
 function truncate(str, len) {
     if (str.length <= len) return str;
     return str.substring(0, str.lastIndexOf(' ', len)) + '...'; // Break at whole word
-}
-
-function renderPagination() {
-    const el = document.getElementById('pagination');
-
-    if (state.totalPages <= 1) {
-        el.innerHTML = '';
-        return;
-    }
-
-    let html = '';
-
-    html += `<button onclick="goToPage(${state.page - 1})" ${state.page === 1 ? 'disabled' : ''} aria-label="Previous Page">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:-4px"><polyline points="15 18 9 12 15 6"></polyline></svg> 
-             </button>`;
-
-    const pages = getPageRange(state.page, state.totalPages);
-    pages.forEach(p => {
-        if (p === '...') {
-            html += `<span class="page-info">…</span>`;
-        } else {
-            html += `<button onclick="goToPage(${p})" class="${p === state.page ? 'active' : ''}" aria-label="Page ${p}" ${p === state.page ? 'aria-current="page"' : ''}>${p}</button>`;
-        }
-    });
-
-    html += `<button onclick="goToPage(${state.page + 1})" ${state.page === state.totalPages ? 'disabled' : ''} aria-label="Next Page">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:-4px"><polyline points="9 18 15 12 9 6"></polyline></svg>
-             </button>`;
-
-    el.innerHTML = html;
-}
-
-function goToPage(page) {
-    if (page < 1 || page > state.totalPages || page === state.page) return;
-    state.page = page;
-    updateUrl();
-    
-    // Smooth scroll to top before loading
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    
-    // Load posts
-    loadPosts();
-}
-
-function getPageRange(current, total) {
-    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-
-    const pages = [];
-    pages.push(1);
-
-    if (current > 3) pages.push('...');
-
-    for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
-        pages.push(i);
-    }
-
-    if (current < total - 2) pages.push('...');
-
-    pages.push(total);
-    return pages;
 }
 
 function populateCategories(categories) {
@@ -351,7 +653,8 @@ function populateCategories(categories) {
 }
 
 function updateStatusBar() {
-    const countText = `Displaying <strong>${state.total}</strong> active logic record${state.total !== 1 ? 's' : ''}`;
+    const loadedCount = document.querySelectorAll('#content .post').length;
+    const countText = `Showing <strong>${loadedCount}</strong> of <strong>${state.total}</strong> posts`;
     document.getElementById('resultCount').innerHTML = countText;
 }
 
@@ -389,4 +692,10 @@ function formatDate(dateStr) {
         month: 'short', 
         day: 'numeric' 
     });
+}
+
+function decodeEntities(value) {
+    const txt = document.createElement('textarea');
+    txt.innerHTML = String(value || '');
+    return txt.value;
 }
