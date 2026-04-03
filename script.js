@@ -11,6 +11,9 @@ const state = {
     user: null
 };
 
+const appBasePath = window.location.pathname.replace(/\/[^/]*$/, '');
+const appUrl = (path) => `${appBasePath}/${path.replace(/^\//, '')}`;
+
 let searchTimeout = null;
 let currentScrollPos = 0; // For modal handling
 const postMap = new Map();
@@ -224,7 +227,7 @@ async function loadPosts(options = {}) {
 
         // Wait for both API response and minimum skeleton display time
         const [response] = await Promise.all([
-            fetch(`api/fetch_posts.php?${params}`),
+            fetch(`${appUrl('api/fetch_posts.php')}?${params}`),
             new Promise(res => setTimeout(res, 300))
         ]);
 
@@ -502,7 +505,7 @@ function wirePostForm() {
         }
 
         try {
-            const endpoint = id > 0 ? 'api/update_post.php' : 'api/create_post.php';
+            const endpoint = id > 0 ? appUrl('api/update_post.php') : appUrl('api/create_post.php');
             if (id > 0) payload.id = id;
 
             const response = await fetch(endpoint, {
@@ -533,7 +536,7 @@ async function deletePost(postId) {
     }
 
     try {
-        const response = await fetch('api/delete_post.php', {
+        const response = await fetch(appUrl('api/delete_post.php'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: Number(postId) })
@@ -553,7 +556,7 @@ async function deletePost(postId) {
 
 async function hydrateAuth() {
     try {
-        const response = await fetch('auth/me.php');
+        const response = await fetch(appUrl('auth/me.php'));
         const data = await response.json();
         state.user = data && data.authenticated ? data.user : null;
     } catch (error) {
@@ -579,7 +582,7 @@ function wireAuthActions() {
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async () => {
             try {
-                const response = await fetch('auth/logout.php', { method: 'POST' });
+                const response = await fetch(appUrl('auth/logout.php'), { method: 'POST' });
                 const data = await response.json();
                 if (!response.ok) {
                     throw new Error(data.error || 'Logout failed.');

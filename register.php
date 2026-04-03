@@ -36,6 +36,7 @@ include __DIR__ . '/partials/header.php';
 <script>
 const form = document.getElementById('registerForm');
 const notice = document.getElementById('notice');
+const appBasePath = window.location.pathname.replace(/\/[^/]*$/, '');
 
 function showNotice(message, type) {
     notice.className = 'notice ' + type;
@@ -57,22 +58,31 @@ form.addEventListener('submit', async (event) => {
     }
 
     try {
-        const response = await fetch('auth/register.php', {
+        const response = await fetch(`${appBasePath}/auth/register.php`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
 
-        const data = await response.json();
+        let data;
+        try {
+            data = await response.json();
+        } catch (parseError) {
+            console.error('Failed to parse response:', parseError);
+            showNotice('Server error: Invalid response format.', 'error');
+            return;
+        }
+
         if (!response.ok) {
-            showNotice(data.error || 'Registration failed.', 'error');
+            showNotice(data.error || `Registration failed (${response.status}).`, 'error');
             return;
         }
 
         showNotice('Registration successful. Redirecting...', 'success');
         setTimeout(() => { window.location.href = 'index.php'; }, 500);
     } catch (error) {
-        showNotice('Network error. Please try again.', 'error');
+        console.error('Fetch error:', error);
+        showNotice('Network error: ' + (error.message || 'Please try again.'), 'error');
     }
 });
 </script>
