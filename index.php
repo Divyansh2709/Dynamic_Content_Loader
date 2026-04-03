@@ -1011,7 +1011,6 @@ if (!isLoggedIn()) {
             </div>
             <div id="userActions" class="auth-pill hidden">
                 <span id="userName" class="user-name"></span>
-                <button type="button" id="addPostBtn" class="btn-add-post">Add Post</button>
                 <button type="button" id="logoutBtn">Logout</button>
             </div>
             <button id="themeToggle" class="theme-btn" aria-label="Toggle Dark Mode">

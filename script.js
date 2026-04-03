@@ -567,13 +567,8 @@ async function hydrateAuth() {
 }
 
 function wireAuthActions() {
-    const addPostBtn = document.getElementById('addPostBtn');
     const quickAddPostBtn = document.getElementById('quickAddPostBtn');
     const logoutBtn = document.getElementById('logoutBtn');
-
-    if (addPostBtn) {
-        addPostBtn.addEventListener('click', openCreatePostModal);
-    }
 
     if (quickAddPostBtn) {
         quickAddPostBtn.addEventListener('click', openCreatePostModal);
